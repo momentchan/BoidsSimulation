@@ -16,6 +16,7 @@ namespace BoidsSimulationOnGPU
         public GPUBoids GPUBoidsScript;
         private PrefsVector3 objectScale;
         private PrefsFloat scaler;
+        private PrefsFloat scaleRandomness;
 
         private bool initialized = false;
 
@@ -33,6 +34,7 @@ namespace BoidsSimulationOnGPU
 
             graph.SetVector3("ObjectScale", objectScale);
             graph.SetFloat("Scaler", scaler);
+            graph.SetFloat("ScaleRandomness", scaleRandomness);
         }
 
         public string GetName() => "BoidsRender";
@@ -41,12 +43,14 @@ namespace BoidsSimulationOnGPU
         {
             objectScale.DoGUI();
             scaler.DoGUI();
+            scaleRandomness.DoGUI();
         }
 
         public void SetupGUI()
         {
             objectScale = new PrefsVector3("ObjectScale", new Vector3(1f, 5f, 2f));
             scaler = new PrefsFloat("Scaler", 0.7f);
+            scaleRandomness = new PrefsFloat("ScalerRandomness", 0.8f);
         }
     }
 }
