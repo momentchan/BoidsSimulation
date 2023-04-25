@@ -3,10 +3,14 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine.VFX;
+using mj.gist.tracking;
+using mj.gist;
+using PrefsGUI;
+using PrefsGUI.RapidGUI;
 
 namespace BoidsSimulationOnGPU
 {
-    public class GPUBoids : MonoBehaviour
+    public class GPUBoids : MonoBehaviour, IGUIUser
     {
         // Boidデータの構造体
         [VFXType(VFXTypeAttribute.Usage.GraphicsBuffer)]
@@ -23,31 +27,22 @@ namespace BoidsSimulationOnGPU
         [Range(256, 32768)]
         public int MaxObjectNum = 16384;
 
-        // 結合を適用する他の個体との半径
-        public float CohesionNeighborhoodRadius = 2.0f;
-        // 整列を適用する他の個体との半径
-        public float AlignmentNeighborhoodRadius = 2.0f;
-        // 分離を適用する他の個体との半径
-        public float SeparateNeighborhoodRadius = 1.0f;
 
-        // 速度の最大値
-        public float MaxSpeed = 5.0f;
-        // 操舵力の最大値
-        public float MaxSteerForce = 0.5f;
+        private PrefsFloat cohesionNeighborhoodRadius;
+        private PrefsFloat alignmentNeighborhoodRadius;
+        private PrefsFloat separateNeighborhoodRadius;
 
-        // 結合する力の重み
-        public float CohesionWeight = 1.0f;
-        // 整列する力の重み
-        public float AlignmentWeight = 1.0f;
-        // 分離する力の重み
-        public float SeparateWeight = 3.0f;
+        private PrefsFloat maxSpeed;
+        private PrefsFloat maxSteerForce;
 
-        // 壁を避ける力の重み
-        public float AvoidWallWeight = 10.0f;
+        private PrefsFloat cohesionWeight;
+        private PrefsFloat alignmentWeight;
+        private PrefsFloat separateWeight;
 
-        // 壁の中心座標   
+        private PrefsFloat avoidWallWeight;
+        private PrefsFloat interactiveForce;
+
         public Vector3 WallCenter = Vector3.zero;
-
         public float WallDepth = 1f;
 
         // 壁のサイズ
@@ -61,9 +56,6 @@ namespace BoidsSimulationOnGPU
                 return new Vector3(w, h, WallDepth);
             }
         }
-
-        public float interactiveForce = 1f;
-        public float interactiveRange = 0.5f;
 
         #endregion
 
@@ -102,6 +94,46 @@ namespace BoidsSimulationOnGPU
         public Vector3 GetSimulationAreaSize()
         {
             return this.WallSize;
+        }
+        #endregion
+
+        #region GUI
+        public string GetName() => "Boids";
+
+        public void ShowGUI()
+        {
+            cohesionNeighborhoodRadius.DoGUI();
+            alignmentNeighborhoodRadius.DoGUI();
+            separateNeighborhoodRadius.DoGUI();
+
+            maxSpeed.DoGUI();
+            maxSteerForce.DoGUI();
+
+            cohesionWeight.DoGUI();
+            alignmentWeight.DoGUI();
+            separateWeight.DoGUI();
+
+            avoidWallWeight.DoGUI();
+
+            interactiveForce.DoGUI();
+        }
+
+        public void SetupGUI()
+        {
+            cohesionNeighborhoodRadius = new PrefsFloat("CohesionNeighborhoodRadius", 0.5f);
+            alignmentNeighborhoodRadius = new PrefsFloat("AlignmentNeighborhoodRadius", 0.5f);
+            separateNeighborhoodRadius = new PrefsFloat("SeparateNeighborhoodRadius", 0.5f);
+
+            maxSpeed = new PrefsFloat("MaxSpeed", 2f);
+            maxSteerForce = new PrefsFloat("MaxSteerForce", 0.5f);
+
+            cohesionWeight = new PrefsFloat("CohesionWeight", 1f);
+            alignmentWeight = new PrefsFloat("AlignmentWeight", 1f);
+            separateWeight = new PrefsFloat("SeparateWeight", 1f);
+
+            avoidWallWeight = new PrefsFloat("AvoidWallWeight", 10f);
+
+            interactiveForce = new PrefsFloat("interactiveForce", 5f);
         }
         #endregion
 
@@ -147,7 +179,7 @@ namespace BoidsSimulationOnGPU
             {
                 forceArr[i] = Vector3.zero;
                 boidDataArr[i].Position = Random.insideUnitSphere * 1f;
-                boidDataArr[i].Velocity =  Random.insideUnitSphere * 0.1f;
+                boidDataArr[i].Velocity = Random.insideUnitSphere * 0.1f;
             }
             _boidForceBuffer.SetData(forceArr);
             _boidDataBuffer.SetData(boidDataArr);
@@ -167,17 +199,17 @@ namespace BoidsSimulationOnGPU
             // 操舵力を計算
             id = cs.FindKernel("ForceCS"); // カーネルIDを取得
             cs.SetInt("_MaxBoidObjectNum", MaxObjectNum);
-            cs.SetFloat("_CohesionNeighborhoodRadius", CohesionNeighborhoodRadius);
-            cs.SetFloat("_AlignmentNeighborhoodRadius", AlignmentNeighborhoodRadius);
-            cs.SetFloat("_SeparateNeighborhoodRadius", SeparateNeighborhoodRadius);
-            cs.SetFloat("_MaxSpeed", MaxSpeed);
-            cs.SetFloat("_MaxSteerForce", MaxSteerForce);
-            cs.SetFloat("_SeparateWeight", SeparateWeight);
-            cs.SetFloat("_CohesionWeight", CohesionWeight);
-            cs.SetFloat("_AlignmentWeight", AlignmentWeight);
+            cs.SetFloat("_CohesionNeighborhoodRadius", cohesionNeighborhoodRadius);
+            cs.SetFloat("_AlignmentNeighborhoodRadius", alignmentNeighborhoodRadius);
+            cs.SetFloat("_SeparateNeighborhoodRadius", separateNeighborhoodRadius);
+            cs.SetFloat("_MaxSpeed", maxSpeed);
+            cs.SetFloat("_MaxSteerForce", maxSteerForce);
+            cs.SetFloat("_SeparateWeight", separateWeight);
+            cs.SetFloat("_CohesionWeight", cohesionWeight);
+            cs.SetFloat("_AlignmentWeight", alignmentWeight);
             cs.SetVector("_WallCenter", WallCenter);
             cs.SetVector("_WallSize", WallSize);
-            cs.SetFloat("_AvoidWallWeight", AvoidWallWeight);
+            cs.SetFloat("_AvoidWallWeight", avoidWallWeight);
             cs.SetBuffer(id, "_BoidDataBufferRead", _boidDataBuffer);
             cs.SetBuffer(id, "_BoidForceBufferWrite", _boidForceBuffer);
 
@@ -195,8 +227,12 @@ namespace BoidsSimulationOnGPU
                 var mouse = Camera.main.ScreenToWorldPoint(Input.mousePosition);
                 cs.SetVector("_InteractivePos", mouse);
                 cs.SetFloat("_InteractiveForce", interactiveForce);
-                cs.SetFloat("_InteractiveRange", interactiveRange);
+                cs.SetFloat("_InteractiveRange", TrackingManager.Instance.DebugSize);
             }
+
+            cs.SetBuffer(id, "_TrackerBuffer", TrackingManager.Instance.TrackerBuffer);
+            cs.SetInt("_TrackersCount", TrackingManager.Instance.TotalTrackerObjectsCount);
+
             cs.Dispatch(id, threadGroupSize, 1, 1); // ComputeShaderを実行
         }
 
@@ -215,6 +251,8 @@ namespace BoidsSimulationOnGPU
                 _boidForceBuffer = null;
             }
         }
+
+
         #endregion
     } // class
 } // namespace

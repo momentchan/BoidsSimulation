@@ -1,6 +1,7 @@
 ﻿// カーネル関数を指定
 #pragma kernel ForceCS      // 操舵力を計算
 #pragma kernel IntegrateCS  // 速度, 位置を計算
+#include "Assets/Packages/unity-gist/Packages/TrackingReceiver/Shader/TrackerData.cginc"
 
 // Boidデータの構造体
 struct BoidData
@@ -21,6 +22,9 @@ StructuredBuffer<float3>     _BoidForceBufferRead;
 // Boidの操舵力のバッファ（読み取り, 書き込み用）
 RWStructuredBuffer<float3>   _BoidForceBufferWrite;
 
+StructuredBuffer<TrackerData>   _TrackerBuffer;
+
+int _TrackersCount;
 int _MaxBoidObjectNum; // Boidオブジェクト数
 
 float _DeltaTime;      // 前フレームから経過した時間
@@ -72,12 +76,23 @@ float3 avoidWall(float3 position)
 	return acc;
 }
 
-float2 interactiveEffect(float2 position)
+float2 computeAvoidance(float2 pos, float2 source){
+	float d = distance(pos, source);
+	return d < _InteractiveRange ? normalize(pos - source)  * _InteractiveForce / (d + 1e-4): 0;
+}
+
+float2 interactiveEffect(float2 pos)
 {
-	float2 mc = _InteractivePos.xy;
 	float2 acc = float2(0, 0);
-	float d = distance(position, mc);
-	acc = d < _InteractiveRange ? normalize(position - mc)  * _InteractiveForce / (d + 1e-4): acc;
+	acc += computeAvoidance(pos, _InteractivePos.xy);
+
+	for(uint i=0;i<_TrackersCount; i++) {
+		TrackerData d = _TrackerBuffer[i];
+
+		if(d.isActive)
+			acc += computeAvoidance(pos, d.wpos);
+	}
+
 	return acc;
 }
 
